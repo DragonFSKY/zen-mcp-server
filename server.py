@@ -372,7 +372,7 @@ def configure_providers():
     Configure and validate AI providers based on available API keys.
 
     This function checks for API keys and registers the appropriate providers.
-    At least one valid API key (Gemini or OpenAI) is required.
+    At least one valid API key (Gemini, OpenAI, DeepSeek, etc.) is required.
 
     Raises:
         ValueError: If no valid API keys are found or conflicting configurations detected
@@ -389,6 +389,7 @@ def configure_providers():
     from providers.dial import DIALModelProvider
     from providers.gemini import GeminiModelProvider
     from providers.openai_provider import OpenAIModelProvider
+    from providers.deepseek import DeepSeekModelProvider
     from providers.openrouter import OpenRouterProvider
     from providers.xai import XAIModelProvider
     from utils.model_restrictions import get_restriction_service
@@ -417,6 +418,13 @@ def configure_providers():
             logger.debug("OpenAI API key not found in environment")
         else:
             logger.debug("OpenAI API key is placeholder value")
+
+    # Check for DeepSeek API key
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+    if deepseek_key and deepseek_key != "your_deepseek_api_key_here":
+        valid_providers.append("DeepSeek")
+        has_native_apis = True
+        logger.info("DeepSeek API key found - DeepSeek models available")
 
     # Check for X.AI API key
     xai_key = os.getenv("XAI_API_KEY")
@@ -469,6 +477,8 @@ def configure_providers():
             ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
         if openai_key and openai_key != "your_openai_api_key_here":
             ModelProviderRegistry.register_provider(ProviderType.OPENAI, OpenAIModelProvider)
+        if deepseek_key and deepseek_key != "your_deepseek_api_key_here":
+            ModelProviderRegistry.register_provider(ProviderType.DEEPSEEK, DeepSeekModelProvider)
         if xai_key and xai_key != "your_xai_api_key_here":
             ModelProviderRegistry.register_provider(ProviderType.XAI, XAIModelProvider)
         if dial_key and dial_key != "your_dial_api_key_here":
