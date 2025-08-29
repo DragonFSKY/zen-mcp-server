@@ -5,6 +5,7 @@ from .gemini import GeminiModelProvider
 from .openai_compatible import OpenAICompatibleProvider
 from .openai_provider import OpenAIModelProvider
 from .openrouter import OpenRouterProvider
+from .deepseek import DeepSeekModelProvider
 from .registry import ModelProviderRegistry
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "GeminiModelProvider",
     "OpenAIModelProvider",
     "OpenAICompatibleProvider",
+    "DeepSeekModelProvider",
     "OpenRouterProvider",
 ]
