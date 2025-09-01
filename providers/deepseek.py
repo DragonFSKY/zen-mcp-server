@@ -1,6 +1,7 @@
 """DeepSeek model provider implementation."""
 
 import logging
+import time
 from typing import TYPE_CHECKING, Optional
 
 from .base import (
@@ -144,9 +145,6 @@ class DeepSeekModelProvider(OpenAICompatibleProvider):
         **kwargs,
     ) -> ModelResponse:
         """Generate content with reasoning support for DeepSeek reasoner models."""
-        # Validate model name against allow-list
-        if not self.validate_model_name(model_name):
-            raise ValueError(f"Model '{model_name}' not in allowed models list.")
 
         # Get effective temperature for this model
         effective_temperature = self.get_effective_temperature(model_name, temperature)
@@ -241,8 +239,6 @@ class DeepSeekModelProvider(OpenAICompatibleProvider):
                 logger.warning(
                     f"DeepSeek reasoning error for model {model_name}, attempt {actual_attempts}/{max_retries}: {str(e)}. Retrying in {delay}s..."
                 )
-
-                import time
 
                 time.sleep(delay)
 
