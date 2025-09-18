@@ -358,10 +358,15 @@ class OpenAICompatibleProvider(ModelProvider):
 
         # Prepare completion parameters for responses endpoint
         # Based on OpenAI documentation, use nested reasoning object for responses endpoint
+        # Use reasoning parameter from kwargs if provided, otherwise default to "medium"
+        reasoning_param = kwargs.get("reasoning", {"effort": "medium"})
+        if not isinstance(reasoning_param, dict) or "effort" not in reasoning_param:
+            reasoning_param = {"effort": "medium"}  # Fallback to default
+
         completion_params = {
             "model": model_name,
             "input": input_messages,
-            "reasoning": {"effort": "medium"},  # Use nested object for responses endpoint
+            "reasoning": reasoning_param,  # Use configured or default reasoning effort
             "store": True,
         }
 
@@ -538,6 +543,22 @@ class OpenAICompatibleProvider(ModelProvider):
                 if not supports_temperature and key in ["top_p", "frequency_penalty", "presence_penalty"]:
                     continue  # Skip unsupported parameters for reasoning models
                 completion_params[key] = value
+            elif key == "reasoning" and isinstance(value, dict):
+                # Support reasoning parameter for GPT-5 models via OpenRouter
+                # These need to go in extra_body for OpenRouter
+                if "effort" in value and value["effort"] in ["minimal", "low", "medium", "high"]:
+                    if "extra_body" not in completion_params:
+                        completion_params["extra_body"] = {}
+                    completion_params["extra_body"]["reasoning"] = value
+                    logging.debug(f"Added reasoning parameter to extra_body (nested): {value}")
+            elif key == "reasoning_effort" and isinstance(value, str):
+                # Support reasoning_effort parameter for O3/O4 models via OpenRouter
+                # These need to go in extra_body for OpenRouter
+                if value in ["minimal", "low", "medium", "high"]:
+                    if "extra_body" not in completion_params:
+                        completion_params["extra_body"] = {}
+                    completion_params["extra_body"]["reasoning_effort"] = value
+                    logging.debug(f"Added reasoning_effort parameter to extra_body (flat): {value}")
 
         # Check if this is o3-pro and needs the responses endpoint
         if resolved_model == "o3-pro":

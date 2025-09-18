@@ -50,6 +50,9 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             aliases = self._registry.list_aliases()
             logging.info(f"OpenRouter loaded {len(models)} models with {len(aliases)} aliases")
 
+        # Parse reasoning effort configuration
+        self._parse_reasoning_config()
+
     def _resolve_model_name(self, model_name: str) -> str:
         """Resolve model aliases to OpenRouter model names.
 
@@ -71,6 +74,161 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             # This allows using models not in our config file
             logging.debug(f"Model '{model_name}' not found in registry, using as-is")
             return model_name
+
+    def _parse_reasoning_config(self):
+        """Parse reasoning effort configuration from environment variables."""
+        # Parse global default reasoning effort
+        self.default_reasoning_effort = os.environ.get("OPENROUTER_DEFAULT_REASONING_EFFORT", "").lower().strip()
+        if self.default_reasoning_effort and self.default_reasoning_effort not in ["minimal", "low", "medium", "high"]:
+            logging.warning(
+                f"Invalid OPENROUTER_DEFAULT_REASONING_EFFORT value: '{self.default_reasoning_effort}'. "
+                "Valid values are: minimal, low, medium, high"
+            )
+            self.default_reasoning_effort = ""
+
+        # Parse model-specific reasoning effort map (JSON format)
+        self.reasoning_effort_map = {}
+        map_str = os.environ.get("OPENROUTER_REASONING_EFFORT_MAP", "").strip()
+        if map_str:
+            try:
+                import json
+
+                raw_map = json.loads(map_str)
+                if not isinstance(raw_map, dict):
+                    logging.error(f"OPENROUTER_REASONING_EFFORT_MAP must be a JSON object, got: {type(raw_map)}")
+                    raw_map = {}
+
+                for model, effort in raw_map.items():
+                    effort = effort.strip().lower() if isinstance(effort, str) else str(effort).lower()
+
+                    # Validate effort value
+                    if effort not in ["minimal", "low", "medium", "high"]:
+                        logging.warning(
+                            f"Invalid reasoning effort '{effort}' for model '{model}'. "
+                            "Valid values are: minimal, low, medium, high"
+                        )
+                        continue
+
+                    # Try to resolve model alias to canonical name
+                    normalized_model = self._normalize_model_key(model)
+                    self.reasoning_effort_map[normalized_model] = effort
+                    if normalized_model != model:
+                        logging.debug(f"Normalized model key '{model}' to '{normalized_model}'")
+
+                if self.reasoning_effort_map:
+                    logging.info(f"Loaded reasoning effort configuration for {len(self.reasoning_effort_map)} models")
+
+            except json.JSONDecodeError as e:
+                logging.error(
+                    f"Failed to parse OPENROUTER_REASONING_EFFORT_MAP as JSON: {e}\n"
+                    f'Expected format: {{"model1": "effort1", "model2": "effort2"}}'
+                )
+
+    def _normalize_model_key(self, key: str) -> str:
+        """Normalize a model key, resolving aliases to canonical names.
+
+        Args:
+            key: Model name or alias
+
+        Returns:
+            Canonical model name if resolved, original key otherwise
+        """
+        # Try to resolve through registry
+        config = self._registry.resolve(key)
+        if config:
+            return config.model_name
+        return key
+
+    def _supports_reasoning(self, model_name: str) -> bool:
+        """Check if an OpenAI model supports reasoning effort parameter.
+
+        Currently only OpenAI models are supported via OpenRouter:
+        - O3 series: uses reasoning_effort parameter
+        - GPT-5 series: uses reasoning parameter (nested object)
+
+        Args:
+            model_name: Model name to check
+
+        Returns:
+            True if model supports reasoning effort, False otherwise
+        """
+        lower_name = model_name.lower()
+
+        # Only support OpenAI models for now
+        if not any(prefix in lower_name for prefix in ["openai/", "gpt-", "gpt5", "o3", "o4"]):
+            return False
+
+        # GPT-5 models support reasoning
+        if "gpt-5" in lower_name or "gpt5" in lower_name:
+            return True
+
+        # O3 models support reasoning_effort
+        if "o3" in lower_name:
+            return True
+
+        # O4 models might support reasoning (future-proofing)
+        if "o4" in lower_name:
+            return True
+
+        return False
+
+    def _get_reasoning_effort(self, model_name: str) -> Optional[str]:
+        """Get the reasoning effort configuration for a specific model.
+
+        Args:
+            model_name: Model name to get configuration for
+
+        Returns:
+            Reasoning effort value (minimal/low/medium/high) or None
+        """
+        # Check if model supports reasoning
+        if not self._supports_reasoning(model_name):
+            return None
+
+        # Normalize the model name
+        normalized_name = self._normalize_model_key(model_name)
+
+        # Check model-specific mapping first (highest priority)
+        if normalized_name in self.reasoning_effort_map:
+            effort = self.reasoning_effort_map[normalized_name]
+            logging.debug(f"Using model-specific reasoning effort '{effort}' for {normalized_name}")
+            return effort
+
+        # Check for wildcard patterns (e.g., "gpt-5*")
+        for pattern, effort in self.reasoning_effort_map.items():
+            if "*" in pattern:
+                pattern_base = pattern.replace("*", "")
+                if normalized_name.startswith(pattern_base) or model_name.startswith(pattern_base):
+                    logging.debug(
+                        f"Using wildcard reasoning effort '{effort}' for {normalized_name} (pattern: {pattern})"
+                    )
+                    return effort
+
+        # Use global default if configured
+        if self.default_reasoning_effort:
+            logging.debug(f"Using default reasoning effort '{self.default_reasoning_effort}' for {normalized_name}")
+            return self.default_reasoning_effort
+
+        # Optional: Fall back to DEFAULT_THINKING_MODE_THINKDEEP if configured
+        thinking_mode = os.environ.get("DEFAULT_THINKING_MODE_THINKDEEP", "").lower().strip()
+        if thinking_mode:
+            # Map thinking modes to reasoning efforts
+            mode_mapping = {
+                "minimal": "minimal",
+                "low": "low",
+                "medium": "medium",
+                "high": "high",
+                "max": "high",  # Map max to high since OpenRouter doesn't support max
+            }
+            if thinking_mode in mode_mapping:
+                effort = mode_mapping[thinking_mode]
+                logging.debug(
+                    f"Using reasoning effort '{effort}' for {normalized_name} "
+                    f"(fallback from DEFAULT_THINKING_MODE_THINKDEEP='{thinking_mode}')"
+                )
+                return effort
+
+        return None
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         """Get capabilities for a model.
@@ -177,6 +335,25 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         """
         # Resolve model alias to actual OpenRouter model name
         resolved_model = self._resolve_model_name(model_name)
+
+        # Check if we should inject reasoning effort parameter
+        effort = self._get_reasoning_effort(resolved_model)
+        if effort:
+            lower_model = resolved_model.lower()
+
+            # Different OpenAI models use different parameter formats
+            if "o3" in lower_model or "o4" in lower_model:
+                # O3/O4 models use reasoning_effort parameter (flat)
+                kwargs["reasoning_effort"] = effort
+                logging.info(f"Applied reasoning_effort={effort} for OpenRouter model '{resolved_model}'")
+            elif "gpt-5" in lower_model or "gpt5" in lower_model:
+                # GPT-5 models use reasoning parameter (nested object)
+                kwargs["reasoning"] = {"effort": effort}
+                logging.info(f"Applied reasoning.effort={effort} for OpenRouter model '{resolved_model}'")
+            else:
+                # Fallback to nested format for unknown OpenAI models
+                kwargs["reasoning"] = {"effort": effort}
+                logging.debug(f"Applied reasoning.effort={effort} (default format) for '{resolved_model}'")
 
         # Always disable streaming for OpenRouter
         # MCP doesn't use streaming, and this avoids issues with O3 model access
