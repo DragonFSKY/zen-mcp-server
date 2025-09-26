@@ -470,6 +470,10 @@ class OpenAICompatibleProvider(ModelProvider):
         Returns:
             ModelResponse with generated content and metadata
         """
+        # Process thinking parameters with environment config override
+        # This ensures all inherited providers respect environment configuration
+        kwargs = self.process_thinking_parameters(model_name, **kwargs)
+
         # Validate model name against allow-list
         if not self.validate_model_name(model_name):
             raise ValueError(f"Model '{model_name}' not in allowed models list. Allowed models: {self.allowed_models}")

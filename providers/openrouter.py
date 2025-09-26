@@ -370,31 +370,32 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         Returns:
             ModelResponse with generated content and metadata
         """
-        # Process thinking parameters with environment config override
-        # The base class method already handles all the logic we need
-        kwargs = self.process_thinking_parameters(model_name, **kwargs)
+        # Note: process_thinking_parameters is now handled by OpenAICompatibleProvider base class
+        # It already processes environment configs and converts thinking_mode to reasoning parameters
 
         # Resolve model alias to actual OpenRouter model name
         resolved_model = self._resolve_model_name(model_name)
 
-        # Check if we should inject reasoning effort parameter
-        effort = self._get_reasoning_effort(resolved_model)
-        if effort:
-            lower_model = resolved_model.lower()
+        # Check if reasoning parameters were already set by base class
+        # If not, check if we should inject reasoning effort parameter using our own logic
+        if not kwargs.get("reasoning_effort") and not kwargs.get("reasoning"):
+            effort = self._get_reasoning_effort(resolved_model)
+            if effort:
+                lower_model = resolved_model.lower()
 
-            # Different OpenAI models use different parameter formats
-            if "o3" in lower_model or "o4" in lower_model:
-                # O3/O4 models use reasoning_effort parameter (flat)
-                kwargs["reasoning_effort"] = effort
-                logging.info(f"Applied reasoning_effort={effort} for OpenRouter model '{resolved_model}'")
-            elif "gpt-5" in lower_model or "gpt5" in lower_model:
-                # GPT-5 models use reasoning parameter (nested object)
-                kwargs["reasoning"] = {"effort": effort}
-                logging.info(f"Applied reasoning.effort={effort} for OpenRouter model '{resolved_model}'")
-            else:
-                # Fallback to nested format for unknown OpenAI models
-                kwargs["reasoning"] = {"effort": effort}
-                logging.debug(f"Applied reasoning.effort={effort} (default format) for '{resolved_model}'")
+                # Different OpenAI models use different parameter formats
+                if "o3" in lower_model or "o4" in lower_model:
+                    # O3/O4 models use reasoning_effort parameter (flat)
+                    kwargs["reasoning_effort"] = effort
+                    logging.info(f"Applied reasoning_effort={effort} for OpenRouter model '{resolved_model}'")
+                elif "gpt-5" in lower_model or "gpt5" in lower_model:
+                    # GPT-5 models use reasoning parameter (nested object)
+                    kwargs["reasoning"] = {"effort": effort}
+                    logging.info(f"Applied reasoning.effort={effort} for OpenRouter model '{resolved_model}'")
+                else:
+                    # Fallback to nested format for unknown OpenAI models
+                    kwargs["reasoning"] = {"effort": effort}
+                    logging.debug(f"Applied reasoning.effort={effort} (default format) for '{resolved_model}'")
 
         # Always disable streaming for OpenRouter
         # MCP doesn't use streaming, and this avoids issues with O3 model access

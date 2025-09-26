@@ -136,8 +136,7 @@ class XAIModelProvider(OpenAICompatibleProvider):
         **kwargs,
     ) -> ModelResponse:
         """Generate content using X.AI API with proper model name resolution."""
-        # Process thinking parameters with environment config override
-        kwargs = self.process_thinking_parameters(model_name, **kwargs)
+        # Note: process_thinking_parameters is now handled by OpenAICompatibleProvider base class
 
         # Resolve model alias before making API call
         resolved_model_name = self._resolve_model_name(model_name)
