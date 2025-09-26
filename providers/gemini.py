@@ -161,6 +161,10 @@ class GeminiModelProvider(ModelProvider):
         **kwargs,
     ) -> ModelResponse:
         """Generate content using Gemini model."""
+        # Process thinking parameters with environment config override
+        kwargs = self.process_thinking_parameters(model_name, thinking_mode=thinking_mode, **kwargs)
+        thinking_mode = kwargs.pop("thinking_mode", "medium")  # Extract processed thinking_mode
+
         # Validate parameters
         resolved_name = self._resolve_model_name(model_name)
         self.validate_parameters(model_name, temperature)

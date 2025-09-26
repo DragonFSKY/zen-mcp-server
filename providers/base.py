@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import json
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -298,6 +299,172 @@ class ModelProvider(ABC):
     def supports_thinking_mode(self, model_name: str) -> bool:
         """Check if the model supports extended thinking mode."""
         pass
+
+    def process_thinking_parameters(self, model_name: str, **kwargs) -> dict[str, Any]:
+        """Process thinking parameters with environment config override.
+
+        This method handles the priority chain:
+        1. Environment variable config (highest priority)
+        2. Tool-provided thinking_mode parameter
+        3. Default values
+
+        Args:
+            model_name: The model name to process parameters for
+            **kwargs: Parameters including potential thinking_mode
+
+        Returns:
+            Modified kwargs with correct thinking parameters
+        """
+        # Get provider type for environment variable naming
+        provider_type = self.get_provider_type().value.upper()
+
+        # Get environment configuration
+        env_thinking_value = self._get_env_thinking_config(provider_type, model_name)
+
+        if env_thinking_value:
+            # Environment config takes priority - remove tool parameter
+            kwargs.pop("thinking_mode", None)
+
+            # Apply the correct parameter based on provider type
+            if provider_type == "OPENROUTER":
+                # Map max to high for OpenRouter (doesn't support max)
+                effort_value = env_thinking_value
+                if effort_value == "max":
+                    effort_value = "high"
+                    logger.debug("Mapped 'max' to 'high' for OpenRouter (doesn't support max)")
+
+                # OpenRouter uses different formats for different models
+                if self._is_openai_model(model_name):
+                    lower_model = model_name.lower()
+                    if "o3" in lower_model or "o4" in lower_model:
+                        kwargs["reasoning_effort"] = effort_value
+                    elif "gpt-5" in lower_model or "gpt5" in lower_model:
+                        kwargs["reasoning"] = {"effort": effort_value}
+                    else:
+                        kwargs["reasoning"] = {"effort": effort_value}
+            else:
+                # Other providers use thinking_mode
+                kwargs["thinking_mode"] = env_thinking_value
+
+            logger.debug(
+                f"Applied environment-configured thinking value '{env_thinking_value}' "
+                f"for {model_name} (provider: {provider_type})"
+            )
+        elif provider_type == "OPENROUTER" and "thinking_mode" in kwargs:
+            # For OpenRouter, if no env config but tool passed thinking_mode,
+            # we need to convert it to the correct format
+            thinking_mode = kwargs.pop("thinking_mode")
+            if thinking_mode and self._is_openai_model(model_name):
+                # Convert thinking_mode to reasoning effort
+                mode_to_effort = {
+                    "minimal": "minimal",
+                    "low": "low",
+                    "medium": "medium",
+                    "high": "high",
+                    "max": "high",  # OpenRouter doesn't support max
+                }
+                effort = mode_to_effort.get(thinking_mode)
+                if effort:
+                    lower_model = model_name.lower()
+                    if "o3" in lower_model or "o4" in lower_model:
+                        kwargs["reasoning_effort"] = effort
+                        logger.debug(
+                            f"Converted thinking_mode='{thinking_mode}' to reasoning_effort='{effort}' "
+                            f"for O3/O4 model {model_name}"
+                        )
+                    elif "gpt-5" in lower_model or "gpt5" in lower_model:
+                        kwargs["reasoning"] = {"effort": effort}
+                        logger.debug(
+                            f"Converted thinking_mode='{thinking_mode}' to reasoning={{'effort': '{effort}'}} "
+                            f"for GPT-5 model {model_name}"
+                        )
+                    else:
+                        kwargs["reasoning"] = {"effort": effort}
+                        logger.debug(
+                            f"Converted thinking_mode='{thinking_mode}' to reasoning={{'effort': '{effort}'}} "
+                            f"for OpenAI model {model_name}"
+                        )
+
+        return kwargs
+
+    def _get_env_thinking_config(self, provider_type: str, model_name: str) -> Optional[str]:
+        """Get thinking configuration from environment variables.
+
+        Checks in priority order:
+        1. Provider-specific model map (JSON format)
+        2. Provider default value
+        3. Global DEFAULT_THINKING_MODE_THINKDEEP (for backward compatibility)
+
+        Args:
+            provider_type: Provider type (e.g., "GOOGLE", "OPENAI")
+            model_name: Model name to get config for
+
+        Returns:
+            Thinking mode/effort value or None
+        """
+        # Determine the appropriate env variable names based on provider
+        if provider_type == "OPENROUTER":
+            map_var = "OPENROUTER_REASONING_EFFORT_MAP"
+            default_var = "OPENROUTER_DEFAULT_REASONING_EFFORT"
+        else:
+            # Standard naming convention for other providers
+            map_var = f"{provider_type}_THINKING_MODE_MAP"
+            default_var = f"{provider_type}_DEFAULT_THINKING_MODE"
+
+        # Check model-specific map first
+        map_str = os.environ.get(map_var, "").strip()
+        if map_str:
+            try:
+                thinking_map = json.loads(map_str)
+                if isinstance(thinking_map, dict):
+                    # Direct match
+                    if model_name in thinking_map:
+                        return thinking_map[model_name].lower()
+
+                    # Wildcard matching
+                    for pattern, value in thinking_map.items():
+                        if "*" in pattern:
+                            if pattern == "*":
+                                # Match all
+                                return value.lower()
+                            elif pattern.startswith("*"):
+                                # Suffix match
+                                if model_name.endswith(pattern[1:]):
+                                    return value.lower()
+                            elif pattern.endswith("*"):
+                                # Prefix match
+                                if model_name.startswith(pattern[:-1]):
+                                    return value.lower()
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse {map_var} as JSON")
+
+        # Check provider default
+        default_value = os.environ.get(default_var, "").strip().lower()
+        if default_value:
+            return default_value
+
+        # Optional: Fall back to global default (for backward compatibility)
+        if provider_type != "OPENROUTER":
+            global_default = os.environ.get("DEFAULT_THINKING_MODE_THINKDEEP", "").strip().lower()
+            if global_default:
+                logger.debug(
+                    f"Using DEFAULT_THINKING_MODE_THINKDEEP='{global_default}' " f"as fallback for {provider_type}"
+                )
+                return global_default
+
+        return None
+
+    def _is_openai_model(self, model_name: str) -> bool:
+        """Check if a model is an OpenAI model (for OpenRouter).
+
+        Args:
+            model_name: Model name to check
+
+        Returns:
+            True if it's an OpenAI model
+        """
+        lower_name = model_name.lower()
+        return any(prefix in lower_name for prefix in ["openai/", "gpt-", "gpt5", "o3", "o4"])
 
     def get_model_configurations(self) -> dict[str, ModelCapabilities]:
         """Get model configurations for this provider.
