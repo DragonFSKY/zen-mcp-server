@@ -358,10 +358,15 @@ class OpenAICompatibleProvider(ModelProvider):
 
         # Prepare completion parameters for responses endpoint
         # Based on OpenAI documentation, use nested reasoning object for responses endpoint
+        # Use reasoning parameter from kwargs if provided, otherwise default to "medium"
+        reasoning_param = kwargs.get("reasoning", {"effort": "medium"})
+        if not isinstance(reasoning_param, dict) or "effort" not in reasoning_param:
+            reasoning_param = {"effort": "medium"}  # Fallback to default
+
         completion_params = {
             "model": model_name,
             "input": input_messages,
-            "reasoning": {"effort": "medium"},  # Use nested object for responses endpoint
+            "reasoning": reasoning_param,  # Use configured or default reasoning effort
             "store": True,
         }
 

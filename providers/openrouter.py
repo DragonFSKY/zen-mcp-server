@@ -377,6 +377,25 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         # Resolve model alias to actual OpenRouter model name
         resolved_model = self._resolve_model_name(model_name)
 
+        # Check if we should inject reasoning effort parameter
+        effort = self._get_reasoning_effort(resolved_model)
+        if effort:
+            lower_model = resolved_model.lower()
+
+            # Different OpenAI models use different parameter formats
+            if "o3" in lower_model or "o4" in lower_model:
+                # O3/O4 models use reasoning_effort parameter (flat)
+                kwargs["reasoning_effort"] = effort
+                logging.info(f"Applied reasoning_effort={effort} for OpenRouter model '{resolved_model}'")
+            elif "gpt-5" in lower_model or "gpt5" in lower_model:
+                # GPT-5 models use reasoning parameter (nested object)
+                kwargs["reasoning"] = {"effort": effort}
+                logging.info(f"Applied reasoning.effort={effort} for OpenRouter model '{resolved_model}'")
+            else:
+                # Fallback to nested format for unknown OpenAI models
+                kwargs["reasoning"] = {"effort": effort}
+                logging.debug(f"Applied reasoning.effort={effort} (default format) for '{resolved_model}'")
+
         # Always disable streaming for OpenRouter
         # MCP doesn't use streaming, and this avoids issues with O3 model access
         if "stream" not in kwargs:

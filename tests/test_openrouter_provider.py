@@ -83,11 +83,23 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("deepseek") == "deepseek/deepseek-r1-0528"
         assert provider._resolve_model_name("r1") == "deepseek/deepseek-r1-0528"
 
+        # Test GPT-5 model aliases
+        assert provider._resolve_model_name("gpt5") == "openai/gpt-5"
+        assert provider._resolve_model_name("gpt-5") == "openai/gpt-5"
+        assert provider._resolve_model_name("gpt5-mini") == "openai/gpt-5-mini"
+        assert provider._resolve_model_name("gpt-5-mini") == "openai/gpt-5-mini"
+        assert provider._resolve_model_name("gpt5-nano") == "openai/gpt-5-nano"
+        assert provider._resolve_model_name("gpt-5-nano") == "openai/gpt-5-nano"
+        assert provider._resolve_model_name("gpt5-chat") == "openai/gpt-5-chat"
+        assert provider._resolve_model_name("gpt-5-chat") == "openai/gpt-5-chat"
+
         # Test case-insensitive
         assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-4.1"
         assert provider._resolve_model_name("O3") == "openai/o3"
         assert provider._resolve_model_name("Mistral") == "mistralai/mistral-large-2411"
         assert provider._resolve_model_name("CLAUDE") == "anthropic/claude-sonnet-4.1"
+        assert provider._resolve_model_name("GPT5") == "openai/gpt-5"
+        assert provider._resolve_model_name("GPT-5-MINI") == "openai/gpt-5-mini"
 
         # Test direct model names (should pass through unchanged)
         assert provider._resolve_model_name("anthropic/claude-opus-4.1") == "anthropic/claude-opus-4.1"
@@ -339,3 +351,36 @@ class TestOpenRouterFunctionality:
         # Registry should be initialized
         assert hasattr(provider, "_registry")
         assert provider._registry is not None
+
+    def test_reasoning_configuration_initialized(self):
+        """Test that reasoning configuration is initialized during provider creation."""
+        # Clear any existing environment variables
+        for key in ["OPENROUTER_DEFAULT_REASONING_EFFORT", "OPENROUTER_REASONING_EFFORT_MAP"]:
+            os.environ.pop(key, None)
+
+        provider = OpenRouterProvider(api_key="test-key")
+
+        # Should have reasoning configuration attributes
+        assert hasattr(provider, "default_reasoning_effort")
+        assert hasattr(provider, "reasoning_effort_map")
+
+        # Should be empty when no env vars are set
+        assert provider.default_reasoning_effort == ""
+        assert provider.reasoning_effort_map == {}
+
+    def test_reasoning_support_for_openai_models(self):
+        """Test that only OpenAI models are marked as supporting reasoning."""
+        provider = OpenRouterProvider(api_key="test-key")
+
+        # OpenAI models should support reasoning
+        assert provider._supports_reasoning("openai/gpt-5") is True
+        assert provider._supports_reasoning("openai/gpt-5-mini") is True
+        assert provider._supports_reasoning("openai/o3") is True
+        assert provider._supports_reasoning("openai/o3-mini") is True
+        assert provider._supports_reasoning("openai/o4-mini") is True
+
+        # Non-OpenAI models should NOT support reasoning
+        assert provider._supports_reasoning("anthropic/claude-opus-4.1") is False
+        assert provider._supports_reasoning("google/gemini-2.5-pro") is False
+        assert provider._supports_reasoning("deepseek/deepseek-r1-0528") is False
+        assert provider._supports_reasoning("mistralai/mistral-large-2411") is False
