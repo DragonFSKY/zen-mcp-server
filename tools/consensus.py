@@ -559,13 +559,16 @@ of the evidence, even when it strongly points in one direction.""",
             for warning in temp_warnings:
                 logger.warning(warning)
 
+            # Get thinking mode from request or use default
+            thinking_mode = self.get_request_thinking_mode(request)
+
             # Call the model with validated temperature
             response = provider.generate_content(
                 prompt=prompt,
                 model_name=model_name,
                 system_prompt=system_prompt,
                 temperature=validated_temperature,
-                thinking_mode="medium",
+                thinking_mode=thinking_mode,
                 images=request.images if request.images else None,
             )
 
