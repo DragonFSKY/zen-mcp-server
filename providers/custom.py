@@ -311,6 +311,9 @@ class CustomProvider(OpenAICompatibleProvider):
         Returns:
             ModelResponse with generated content and metadata
         """
+        # Process thinking parameters with environment config override
+        kwargs = self.process_thinking_parameters(model_name, **kwargs)
+
         # Resolve model alias to actual model name
         resolved_model = self._resolve_model_name(model_name)
 
