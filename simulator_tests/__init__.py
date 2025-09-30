@@ -19,6 +19,7 @@ from .test_cross_tool_comprehensive import CrossToolComprehensiveTest
 from .test_cross_tool_continuation import CrossToolContinuationTest
 from .test_debug_certain_confidence import DebugCertainConfidenceTest
 from .test_debug_validation import DebugValidationTest
+from .test_environment_config_priority import TestEnvironmentConfigPriority
 from .test_line_number_validation import LineNumberValidationTest
 from .test_logs_validation import LogsValidationTest
 from .test_model_thinking_config import TestModelThinkingConfig
@@ -69,6 +70,7 @@ TEST_REGISTRY = {
     "secaudit_validation": SecauditValidationTest,
     "debug_validation": DebugValidationTest,
     "debug_certain_confidence": DebugCertainConfidenceTest,
+    "environment_config_priority": TestEnvironmentConfigPriority,
     "conversation_chain_validation": ConversationChainValidationTest,
     "vision_capability": VisionCapabilityTest,
     "xai_models": XAIModelsTest,
@@ -107,6 +109,7 @@ __all__ = [
     "SecauditValidationTest",
     "DebugValidationTest",
     "DebugCertainConfidenceTest",
+    "TestEnvironmentConfigPriority",
     "ConversationChainValidationTest",
     "VisionCapabilityTest",
     "XAIModelsTest",
