@@ -203,11 +203,11 @@ nano .env
 Add your API keys (at least one required):
 ```env
 # Choose your providers (at least one required)
-GEMINI_API_KEY=your-gemini-api-key-here      # For Gemini models
-OPENAI_API_KEY=your-openai-api-key-here      # For O3, GPT-5
-DEEPSEEK_API_KEY=your-deepseek-api-key-here  # For DeepSeek models
-# DEEPSEEK_BASE_URL=https://api.deepseek.com   # Optional: custom API endpoint
-XAI_API_KEY=your-xai-api-key-here            # For Grok models
+GEMINI_API_KEY=your-gemini-api-key-here       # For Gemini models
+OPENAI_API_KEY=your-openai-api-key-here       # For O3, GPT-5
+DEEPSEEK_API_KEY=your-deepseek-api-key-here   # For DeepSeek models
+# DEEPSEEK_BASE_URL=https://api.deepseek.com  # Optional: custom API endpoint
+XAI_API_KEY=your-xai-api-key-here             # For Grok models
 OPENROUTER_API_KEY=your-openrouter-key       # For multiple models
 
 # DIAL Platform (optional)
