@@ -431,11 +431,60 @@ class SimpleTool(BaseTool):
                 f"Using model: {self._model_context.model_name} via {provider.get_provider_type().value} provider"
             )
 
-            # Estimate tokens for logging
+            # Estimate tokens for logging (use provider-specific methods when available)
             from utils.token_utils import estimate_tokens
 
-            estimated_tokens = estimate_tokens(prompt)
-            logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
+            # Estimate text tokens using provider-specific tokenizer
+            if hasattr(provider, "_calculate_text_tokens"):
+                try:
+                    estimated_tokens = provider._calculate_text_tokens(self._current_model_name, prompt)
+                    logger.debug(
+                        f"Prompt length: {len(prompt)} characters ({estimated_tokens:,} tokens via provider tokenizer)"
+                    )
+                except Exception as e:
+                    logger.debug(f"Provider tokenization failed: {e}, using fallback")
+                    estimated_tokens = estimate_tokens(prompt)
+                    logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens via fallback)")
+            else:
+                estimated_tokens = estimate_tokens(prompt)
+                logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
+
+            # Estimate image tokens if images are provided
+            if images:
+                image_tokens = 0
+                if hasattr(provider, "estimate_tokens_for_files"):
+                    try:
+                        # Prepare file list for token estimation
+                        import mimetypes
+
+                        files_for_estimation = []
+                        for image_path in images:
+                            # Determine MIME type
+                            mime_type, _ = mimetypes.guess_type(image_path)
+                            if not mime_type:
+                                mime_type = "image/jpeg"  # Default fallback
+                            files_for_estimation.append({"path": image_path, "mime_type": mime_type})
+
+                        image_tokens = (
+                            provider.estimate_tokens_for_files(self._current_model_name, files_for_estimation) or 0
+                        )
+                        logger.debug(f"Image tokens: {image_tokens:,} for {len(images)} image(s)")
+                    except Exception as e:
+                        logger.debug(f"Image token estimation failed: {e}, using simple estimate")
+                        # Fallback: rough estimate for images
+                        image_tokens = len(images) * 258  # Conservative estimate per image
+                        logger.debug(f"Image tokens (fallback): {image_tokens:,} for {len(images)} image(s)")
+                else:
+                    # Fallback for providers without file token estimation
+                    image_tokens = len(images) * 258
+                    logger.debug(f"Image tokens (fallback): {image_tokens:,} for {len(images)} image(s)")
+
+                total_tokens = estimated_tokens + image_tokens
+                logger.debug(
+                    f"Total estimated tokens: {total_tokens:,} (text: {estimated_tokens:,}, images: {image_tokens:,})"
+                )
+            else:
+                total_tokens = estimated_tokens
 
             # Resolve model capabilities for feature gating
             supports_thinking = capabilities.supports_extended_thinking
