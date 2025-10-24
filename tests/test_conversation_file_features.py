@@ -557,7 +557,7 @@ class TestGeminiTokenEstimationIntegration:
         # Create test image file
         test_image = os.path.join(project_path, "test.jpg")
         with open(test_image, "wb") as f:
-            f.write(b"\xFF\xD8\xFF\xE0")  # JPEG header
+            f.write(b"\xff\xd8\xff\xe0")  # JPEG header
 
         # Create mock provider with Gemini estimation capability
         mock_provider = Mock()
@@ -706,7 +706,7 @@ class TestGeminiTokenEstimationIntegration:
         text_file = os.path.join(project_path, "code.py")
 
         with open(image_file, "wb") as f:
-            f.write(b"\xFF\xD8\xFF\xE0")  # JPEG header
+            f.write(b"\xff\xd8\xff\xe0")  # JPEG header
         with open(pdf_file, "wb") as f:
             f.write(b"%PDF-1.4")  # PDF header
         with open(text_file, "w") as f:

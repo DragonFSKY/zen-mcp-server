@@ -48,7 +48,9 @@ class TestModelContextTokenEstimation(unittest.TestCase):
             max_output_tokens=4096,
         )
 
-        with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=mock_provider_no_estimation):
+        with patch(
+            "utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=mock_provider_no_estimation
+        ):
             with patch("utils.file_utils.estimate_file_tokens", return_value=100) as mock_fallback:
                 model_context = ModelContext("gpt-5")
 
@@ -115,7 +117,7 @@ class TestModelContextTokenEstimation(unittest.TestCase):
             self.assertEqual(model_context._detect_mime_type("/path/to/file.mov"), "video/quicktime")
             self.assertEqual(model_context._detect_mime_type("/path/to/file.avi"), "video/x-msvideo")
 
-            # Test audio types  
+            # Test audio types
             self.assertEqual(model_context._detect_mime_type("/path/to/file.mp3"), "audio/mpeg")
             # Note: mimetypes.guess_type may return 'audio/x-wav', but our fallback map uses 'audio/wav'
             mime = model_context._detect_mime_type("/path/to/file.wav")
@@ -186,7 +188,9 @@ class TestModelContextTokenEstimation(unittest.TestCase):
             max_output_tokens=4096,
         )
 
-        with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=mock_provider_no_tokenizer):
+        with patch(
+            "utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=mock_provider_no_tokenizer
+        ):
             model_context = ModelContext("gpt-5")
 
             # "Hello world" = 11 characters / 3 = 3 tokens (conservative estimate)
