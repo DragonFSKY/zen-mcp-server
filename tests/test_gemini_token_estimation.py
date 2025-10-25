@@ -19,6 +19,7 @@ class TestGeminiTokenEstimation(unittest.TestCase):
         # Test with real LocalTokenizer (requires google-genai[local-tokenizer]>=1.34.0)
         try:
             from google.genai.local_tokenizer import LocalTokenizer
+
             # If LocalTokenizer is available, it should work
             tokens = self.provider._calculate_text_tokens("gemini-2.5-flash", "Hello world")
             # LocalTokenizer should return actual token count (not character-based fallback)

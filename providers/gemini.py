@@ -14,6 +14,7 @@ from google.genai import types
 # Requires google-genai[local-tokenizer]>=1.34.0
 try:
     from google.genai.local_tokenizer import LocalTokenizer
+
     _HAS_LOCAL_TOKENIZER = True
 except ImportError:
     _HAS_LOCAL_TOKENIZER = False
@@ -523,7 +524,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
             except Exception as e:
                 logger.warning("LocalTokenizer failed: %s, using fallback", str(e))
-        
+
         # Fallback: 1 token ≈ 4 characters
         return len(content) // 4
 
