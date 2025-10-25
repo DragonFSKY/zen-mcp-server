@@ -1,7 +1,7 @@
 """Tests for Gemini provider offline token estimation."""
 
 import unittest
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 from providers.gemini import GeminiModelProvider
 
@@ -18,7 +18,7 @@ class TestGeminiTokenEstimation(unittest.TestCase):
         """Test text token calculation uses LocalTokenizer when available."""
         # Test with real LocalTokenizer (requires google-genai[local-tokenizer]>=1.34.0)
         try:
-            from google.genai.local_tokenizer import LocalTokenizer
+            from google.genai.local_tokenizer import LocalTokenizer  # noqa: F401
 
             # If LocalTokenizer is available, it should work
             tokens = self.provider._calculate_text_tokens("gemini-2.5-flash", "Hello world")
