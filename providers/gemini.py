@@ -72,31 +72,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         "HIGH": types.MediaResolution.MEDIA_RESOLUTION_HIGH,
     }
 
-    # Pre-Gemini 2.0 models that use fixed 258 tokens for all images (no tiling)
-    # These models should be explicitly listed to avoid version detection issues
-    PRE_GEMINI_2_0_MODELS = {
-        # Gemini 1.0 series
-        "gemini-1.0-pro",
-        "gemini-1.0-pro-latest",
-        "gemini-1.0-pro-vision",
-        "gemini-1.0-pro-vision-latest",
-        "gemini-pro",
-        "gemini-pro-vision",
-        # Gemini 1.5 Pro series
-        "gemini-1.5-pro",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-pro-001",
-        "gemini-1.5-pro-002",
-        "gemini-1.5-pro-preview",
-        "gemini-1.5-pro-exp-0827",
-        # Gemini 1.5 Flash series
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-001",
-        "gemini-1.5-flash-002",
-        "gemini-1.5-flash-preview",
-        "gemini-1.5-flash-exp-0827",
-    }
+    # Legacy model aliases without version numbers (map to 1.0)
+    _LEGACY_MODEL_ALIASES = {"gemini-pro", "gemini-pro-vision"}
 
     # Thinking mode configurations - percentages of model's max_thinking_tokens
     # These percentages work across all models that support thinking
@@ -527,6 +504,26 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             logger.error(f"Error processing image {image_path}: {e}")
             return None
 
+    def _is_pre_gemini_2_model(self, model_name: str) -> bool:
+        """Check if model is pre-Gemini 2.0 (1.0 or 1.5 series).
+
+        Uses pattern matching to automatically handle new 1.x model variants
+        without requiring code updates.
+
+        Args:
+            model_name: The model name to check
+
+        Returns:
+            True if model is Gemini 1.0 or 1.5 series, False otherwise
+        """
+        # Check if it's a 1.x versioned model (gemini-1.0-*, gemini-1.5-*)
+        if model_name.startswith("gemini-1."):
+            return True
+        # Check if it's a legacy alias (gemini-pro, gemini-pro-vision)
+        if model_name in self._LEGACY_MODEL_ALIASES:
+            return True
+        return False
+
     @staticmethod
     def _handle_file_access_error(file_path: str, error: Exception, file_type: str) -> None:
         """Handle file access errors with consistent error messages.
@@ -607,7 +604,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
             # Gemini 1.5 and earlier: Fixed 258 tokens (no tiling)
             # "Prior to Gemini 2.0, images used a fixed 258 tokens"
-            if model_name in self.PRE_GEMINI_2_0_MODELS:
+            if self._is_pre_gemini_2_model(model_name):
                 return 258
 
             # Gemini 2.0+: Fixed 768×768 tiles

@@ -451,7 +451,7 @@ class SimpleTool(BaseTool):
                         )
                         logger.debug(f"Image tokens: {image_tokens:,} for {len(images)} image(s)")
                     except Exception as e:
-                        logger.debug(f"Image token estimation failed: {e}, using simple estimate")
+                        logger.warning(f"Image token estimation failed: {e}, using simple estimate")
                         # Fallback: rough estimate for images
                         image_tokens = len(images) * 258  # Conservative estimate per image
                         logger.debug(f"Image tokens (fallback): {image_tokens:,} for {len(images)} image(s)")

@@ -745,6 +745,5 @@ class TestGeminiTokenEstimationIntegration:
             assert set(included) == set(all_files)
             assert skipped == []
 
-            # Total should be sum of individual estimates
-            # Note: actual total may vary due to sequential processing
-            assert total_tokens > 0
+            # Total should be sum of individual estimates: 258 (image) + 2580 (pdf) + 50 (text)
+            assert total_tokens == 2888

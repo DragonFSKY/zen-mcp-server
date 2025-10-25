@@ -202,7 +202,7 @@ class ModelContext:
             try:
                 return self.provider._calculate_text_tokens(self.model_name, text)
             except Exception as e:
-                logger.debug(
+                logger.warning(
                     "Provider tokenization failed for %s: %s, using fallback",
                     self.model_name,
                     e,
@@ -242,7 +242,7 @@ class ModelContext:
                 if tokens is not None:
                     return tokens
             except Exception as e:
-                logger.debug(
+                logger.warning(
                     "Provider file tokenization failed for %s: %s, using fallback",
                     self.model_name,
                     e,
