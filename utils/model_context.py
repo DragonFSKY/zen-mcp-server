@@ -62,6 +62,22 @@ class ModelContext:
     token calculations, ensuring consistency across the system.
     """
 
+    # MIME type mapping for common file extensions
+    _MIME_MAP = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".pdf": "application/pdf",
+        ".mp4": "video/mp4",
+        ".mpeg": "video/mpeg",
+        ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+    }
+
     def __init__(self, model_name: str, model_option: Optional[str] = None):
         self.model_name = model_name
         self.model_option = model_option  # Store optional model option (e.g., "for", "against", etc.)
@@ -253,21 +269,7 @@ class ModelContext:
         mime_type, _ = mimetypes.guess_type(file_path)
         if not mime_type:
             ext = os.path.splitext(file_path)[1].lower()
-            mime_map = {
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".png": "image/png",
-                ".gif": "image/gif",
-                ".webp": "image/webp",
-                ".pdf": "application/pdf",
-                ".mp4": "video/mp4",
-                ".mpeg": "video/mpeg",
-                ".mov": "video/quicktime",
-                ".avi": "video/x-msvideo",
-                ".mp3": "audio/mpeg",
-                ".wav": "audio/wav",
-            }
-            mime_type = mime_map.get(ext, "text/plain")
+            mime_type = self._MIME_MAP.get(ext, "text/plain")
         return mime_type
 
     @classmethod

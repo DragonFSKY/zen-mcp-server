@@ -105,8 +105,8 @@ class TestGeminiTokenEstimation(unittest.TestCase):
     # Test: Video token calculation
     def test_calculate_video_tokens_medium_resolution(self):
         """Test video token calculation with MEDIUM resolution (~300 tokens/sec)."""
-        with patch("tinytag.TinyTag.get") as mock_get:
-            with patch("config.GEMINI_MEDIA_RESOLUTION", "MEDIUM"):
+        with patch("providers.gemini.TinyTag.get") as mock_get:
+            with patch("providers.gemini.GEMINI_MEDIA_RESOLUTION", "MEDIUM"):
                 mock_tag = Mock()
                 mock_tag.duration = 10.0  # 10 seconds
                 mock_get.return_value = mock_tag
@@ -117,8 +117,8 @@ class TestGeminiTokenEstimation(unittest.TestCase):
 
     def test_calculate_video_tokens_low_resolution(self):
         """Test video token calculation with LOW resolution (~100 tokens/sec)."""
-        with patch("tinytag.TinyTag.get") as mock_get:
-            with patch("config.GEMINI_MEDIA_RESOLUTION", "LOW"):
+        with patch("providers.gemini.TinyTag.get") as mock_get:
+            with patch("providers.gemini.GEMINI_MEDIA_RESOLUTION", "LOW"):
                 mock_tag = Mock()
                 mock_tag.duration = 10.0  # 10 seconds
                 mock_get.return_value = mock_tag
@@ -129,8 +129,8 @@ class TestGeminiTokenEstimation(unittest.TestCase):
 
     def test_calculate_video_tokens_no_duration(self):
         """Test video token calculation when duration is None (fallback 10 sec)."""
-        with patch("tinytag.TinyTag.get") as mock_get:
-            with patch("config.GEMINI_MEDIA_RESOLUTION", "MEDIUM"):
+        with patch("providers.gemini.TinyTag.get") as mock_get:
+            with patch("providers.gemini.GEMINI_MEDIA_RESOLUTION", "MEDIUM"):
                 mock_tag = Mock()
                 mock_tag.duration = None
                 mock_get.return_value = mock_tag
@@ -141,14 +141,14 @@ class TestGeminiTokenEstimation(unittest.TestCase):
 
     def test_calculate_video_tokens_error_fallback(self):
         """Test video token calculation fallback on non-file errors."""
-        with patch("tinytag.TinyTag.get", side_effect=Exception("Corrupted video")):
+        with patch("providers.gemini.TinyTag.get", side_effect=Exception("Corrupted video")):
             tokens = self.provider._calculate_video_tokens("/path/to/error.mp4")
             # Fallback: 10 sec * 300 tokens/sec = 3000
             self.assertEqual(tokens, 3000)
 
     def test_calculate_video_tokens_os_error(self):
         """Test video token calculation raises ValueError on OS error."""
-        with patch("tinytag.TinyTag.get", side_effect=OSError("Cannot read file")):
+        with patch("providers.gemini.TinyTag.get", side_effect=OSError("Cannot read file")):
             with self.assertRaises(ValueError) as context:
                 self.provider._calculate_video_tokens("/path/to/unreadable.mp4")
             self.assertIn("Cannot access video file", str(context.exception))
@@ -156,7 +156,7 @@ class TestGeminiTokenEstimation(unittest.TestCase):
     # Test: Audio token calculation
     def test_calculate_audio_tokens_success(self):
         """Test audio token calculation (32 tokens/sec)."""
-        with patch("tinytag.TinyTag.get") as mock_get:
+        with patch("providers.gemini.TinyTag.get") as mock_get:
             mock_tag = Mock()
             mock_tag.duration = 15.0  # 15 seconds
             mock_get.return_value = mock_tag
@@ -167,7 +167,7 @@ class TestGeminiTokenEstimation(unittest.TestCase):
 
     def test_calculate_audio_tokens_no_duration(self):
         """Test audio token calculation when duration is None (fallback 10 sec)."""
-        with patch("tinytag.TinyTag.get") as mock_get:
+        with patch("providers.gemini.TinyTag.get") as mock_get:
             mock_tag = Mock()
             mock_tag.duration = None
             mock_get.return_value = mock_tag
@@ -178,14 +178,14 @@ class TestGeminiTokenEstimation(unittest.TestCase):
 
     def test_calculate_audio_tokens_error_fallback(self):
         """Test audio token calculation fallback on non-file errors."""
-        with patch("tinytag.TinyTag.get", side_effect=Exception("Unsupported format")):
+        with patch("providers.gemini.TinyTag.get", side_effect=Exception("Unsupported format")):
             tokens = self.provider._calculate_audio_tokens("/path/to/error.mp3")
             # Fallback: 10 sec * 32 tokens/sec = 320
             self.assertEqual(tokens, 320)
 
     def test_calculate_audio_tokens_io_error(self):
         """Test audio token calculation raises ValueError on I/O error."""
-        with patch("tinytag.TinyTag.get", side_effect=OSError("I/O error")):
+        with patch("providers.gemini.TinyTag.get", side_effect=OSError("I/O error")):
             with self.assertRaises(ValueError) as context:
                 self.provider._calculate_audio_tokens("/path/to/ioerror.mp3")
             self.assertIn("Cannot access audio file", str(context.exception))

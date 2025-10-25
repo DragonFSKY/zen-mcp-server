@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import math
 from typing import TYPE_CHECKING, ClassVar, Optional
 
 if TYPE_CHECKING:
@@ -18,6 +19,28 @@ try:
     _HAS_LOCAL_TOKENIZER = True
 except ImportError:
     _HAS_LOCAL_TOKENIZER = False
+
+# Optional dependencies for token estimation
+try:
+    import imagesize
+
+    _HAS_IMAGESIZE = True
+except ImportError:
+    _HAS_IMAGESIZE = False
+
+try:
+    import pypdf
+
+    _HAS_PYPDF = True
+except ImportError:
+    _HAS_PYPDF = False
+
+try:
+    from tinytag import TinyTag
+
+    _HAS_TINYTAG = True
+except ImportError:
+    _HAS_TINYTAG = False
 
 from config import GEMINI_MEDIA_RESOLUTION
 from utils.env import get_env
@@ -41,6 +64,13 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
     REGISTRY_CLASS = GeminiModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
+
+    # Media resolution mapping for video token estimation
+    _RESOLUTION_MAP = {
+        "LOW": types.MediaResolution.MEDIA_RESOLUTION_LOW,
+        "MEDIUM": types.MediaResolution.MEDIA_RESOLUTION_MEDIUM,
+        "HIGH": types.MediaResolution.MEDIA_RESOLUTION_HIGH,
+    }
 
     # Pre-Gemini 2.0 models that use fixed 258 tokens for all images (no tiling)
     # These models should be explicitly listed to avoid version detection issues
@@ -243,12 +273,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         # Add media resolution configuration
         # Supports LOW (saves 62-75% tokens), MEDIUM (default), HIGH (quality)
         media_resolution = kwargs.get("media_resolution") or GEMINI_MEDIA_RESOLUTION
-        RESOLUTION_MAP = {
-            "LOW": types.MediaResolution.MEDIA_RESOLUTION_LOW,
-            "MEDIUM": types.MediaResolution.MEDIA_RESOLUTION_MEDIUM,
-            "HIGH": types.MediaResolution.MEDIA_RESOLUTION_HIGH,
-        }
-        resolution_enum = RESOLUTION_MAP.get(media_resolution.upper())
+        resolution_enum = self._RESOLUTION_MAP.get(media_resolution.upper())
         if resolution_enum:
             generation_config.media_resolution = resolution_enum
 
@@ -502,6 +527,25 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             logger.error(f"Error processing image {image_path}: {e}")
             return None
 
+    @staticmethod
+    def _handle_file_access_error(file_path: str, error: Exception, file_type: str) -> None:
+        """Handle file access errors with consistent error messages.
+
+        Args:
+            file_path: Path to the file
+            error: The exception that was raised
+            file_type: Type of file (e.g., 'Image', 'PDF', 'Video')
+
+        Raises:
+            ValueError: With descriptive error message
+        """
+        if isinstance(error, FileNotFoundError):
+            raise ValueError(f"{file_type} file not found for token estimation: {file_path}")
+        elif isinstance(error, PermissionError):
+            raise ValueError(f"Permission denied accessing {file_type.lower()} file: {file_path}")
+        elif isinstance(error, OSError):
+            raise ValueError(f"Cannot access {file_type.lower()} file {file_path}: {error}")
+
     def _calculate_text_tokens(self, model_name: str, content: str) -> int:
         """Calculate text token count using LocalTokenizer.
 
@@ -550,11 +594,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Raises:
             ValueError: If file cannot be accessed (not found, permission denied, etc.)
         """
+        if not _HAS_IMAGESIZE:
+            logger.warning("imagesize library not available, using fallback")
+            return 258
+
         try:
-            import math
-
-            import imagesize
-
             width, height = imagesize.get(file_path)
 
             # Small images: BOTH dimensions must be ≤384
@@ -572,12 +616,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             tiles = tiles_x * tiles_y
             return 258 * tiles
 
-        except FileNotFoundError:
-            raise ValueError(f"Image file not found for token estimation: {file_path}")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing image file: {file_path}")
-        except OSError as e:
-            raise ValueError(f"Cannot access image file {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            self._handle_file_access_error(file_path, e, "Image")
         except Exception as e:
             # Other errors (parsing issues, corrupted image, library errors) - use fallback
             logger.warning("Failed to calculate image tokens for %s: %s", file_path, e)
@@ -600,21 +640,19 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Raises:
             ValueError: If file cannot be accessed (not found, permission denied, etc.)
         """
-        try:
-            import pypdf
+        if not _HAS_PYPDF:
+            logger.warning("pypdf library not available, using fallback")
+            return 258 * 10
 
+        try:
             with open(file_path, "rb") as f:
                 pdf = pypdf.PdfReader(f)
                 num_pages = len(pdf.pages)
 
             return 258 * num_pages
 
-        except FileNotFoundError:
-            raise ValueError(f"PDF file not found for token estimation: {file_path}")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing PDF file: {file_path}")
-        except OSError as e:
-            raise ValueError(f"Cannot access PDF file {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            self._handle_file_access_error(file_path, e, "PDF")
         except Exception as e:
             # Other errors (parsing issues, corrupted PDF) - use fallback
             logger.warning("Failed to calculate PDF tokens for %s: %s", file_path, e)
@@ -640,11 +678,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Raises:
             ValueError: If file cannot be accessed (not found, permission denied, etc.)
         """
+        if not _HAS_TINYTAG:
+            logger.warning("tinytag library not available, using fallback")
+            return 3000
+
         try:
-            from tinytag import TinyTag
-
-            from config import GEMINI_MEDIA_RESOLUTION
-
             tag = TinyTag.get(file_path)
             duration_seconds = tag.duration
 
@@ -663,12 +701,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
             return int(duration_seconds * tokens_per_second)
 
-        except FileNotFoundError:
-            raise ValueError(f"Video file not found for token estimation: {file_path}")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing video file: {file_path}")
-        except OSError as e:
-            raise ValueError(f"Cannot access video file {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            self._handle_file_access_error(file_path, e, "Video")
         except Exception as e:
             # Other errors (corrupted video, unsupported codec) - use fallback
             logger.warning("Failed to calculate video tokens for %s: %s", file_path, e)
@@ -690,9 +724,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Raises:
             ValueError: If file cannot be accessed (not found, permission denied, etc.)
         """
-        try:
-            from tinytag import TinyTag
+        if not _HAS_TINYTAG:
+            logger.warning("tinytag library not available, using fallback")
+            return 320
 
+        try:
             tag = TinyTag.get(file_path)
             duration_seconds = tag.duration
 
@@ -703,12 +739,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
             return int(duration_seconds * 32)
 
-        except FileNotFoundError:
-            raise ValueError(f"Audio file not found for token estimation: {file_path}")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing audio file: {file_path}")
-        except OSError as e:
-            raise ValueError(f"Cannot access audio file {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            self._handle_file_access_error(file_path, e, "Audio")
         except Exception as e:
             # Other errors (corrupted audio, unsupported format) - use fallback
             logger.warning("Failed to calculate audio tokens for %s: %s", file_path, e)
@@ -732,12 +764,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 content = f.read()
                 return self._calculate_text_tokens(model_name, content)
 
-        except FileNotFoundError:
-            raise ValueError(f"Text file not found for token estimation: {file_path}")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing text file: {file_path}")
-        except OSError as e:
-            raise ValueError(f"Cannot access text file {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            self._handle_file_access_error(file_path, e, "Text")
 
     def estimate_tokens_for_files(self, model_name: str, files: list[dict]) -> Optional[int]:
         """Estimate token count for files using offline calculation.
