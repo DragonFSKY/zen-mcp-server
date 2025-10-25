@@ -220,7 +220,7 @@ class ModelContext:
         # Try provider-specific file token estimation (e.g., Gemini)
         if hasattr(self.provider, "estimate_tokens_for_files"):
             try:
-                mime_type = self._detect_mime_type(file_path)
+                mime_type = self.detect_mime_type(file_path)
                 files = [{"path": file_path, "mime_type": mime_type}]
                 tokens = self.provider.estimate_tokens_for_files(self.model_name, files)
                 if tokens is not None:
@@ -237,11 +237,11 @@ class ModelContext:
 
         return estimate_file_tokens(file_path)
 
-    def _detect_mime_type(self, file_path: str) -> str:
+    def detect_mime_type(self, file_path: str) -> str:
         """
         Detect MIME type for a file using standard library and extension mapping.
 
-        This is a private helper method used by estimate_file_tokens() to determine
+        This method can be used by tools and other components to determine
         the MIME type needed for provider-specific token estimation.
 
         Args:

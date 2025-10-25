@@ -97,68 +97,68 @@ class TestModelContextTokenEstimation(unittest.TestCase):
 
             self.assertEqual(tokens, 0)
 
-    def test_detect_mime_type_common_extensions(self):
-        """Test _detect_mime_type correctly maps common file extensions."""
+    def testdetect_mime_type_common_extensions(self):
+        """Test detect_mime_type correctly maps common file extensions."""
         with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=self.mock_provider):
             model_context = ModelContext("flash")
 
             # Test image types
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.jpg"), "image/jpeg")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.jpeg"), "image/jpeg")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.png"), "image/png")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.gif"), "image/gif")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.webp"), "image/webp")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.jpg"), "image/jpeg")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.jpeg"), "image/jpeg")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.png"), "image/png")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.gif"), "image/gif")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.webp"), "image/webp")
 
             # Test document types
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.pdf"), "application/pdf")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.pdf"), "application/pdf")
 
             # Test video types
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.mp4"), "video/mp4")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.mov"), "video/quicktime")
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.avi"), "video/x-msvideo")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.mp4"), "video/mp4")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.mov"), "video/quicktime")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.avi"), "video/x-msvideo")
 
             # Test audio types
-            self.assertEqual(model_context._detect_mime_type("/path/to/file.mp3"), "audio/mpeg")
+            self.assertEqual(model_context.detect_mime_type("/path/to/file.mp3"), "audio/mpeg")
             # Note: mimetypes.guess_type may return 'audio/x-wav', but our fallback map uses 'audio/wav'
-            mime = model_context._detect_mime_type("/path/to/file.wav")
+            mime = model_context.detect_mime_type("/path/to/file.wav")
             self.assertIn(mime, ["audio/wav", "audio/x-wav"])  # Accept either
 
-    def test_detect_mime_type_case_insensitive(self):
-        """Test _detect_mime_type handles uppercase extensions."""
+    def testdetect_mime_type_case_insensitive(self):
+        """Test detect_mime_type handles uppercase extensions."""
         with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=self.mock_provider):
             model_context = ModelContext("flash")
 
             # Uppercase extensions should work
-            self.assertEqual(model_context._detect_mime_type("/path/to/FILE.JPG"), "image/jpeg")
-            self.assertEqual(model_context._detect_mime_type("/path/to/FILE.PNG"), "image/png")
-            self.assertEqual(model_context._detect_mime_type("/path/to/FILE.PDF"), "application/pdf")
+            self.assertEqual(model_context.detect_mime_type("/path/to/FILE.JPG"), "image/jpeg")
+            self.assertEqual(model_context.detect_mime_type("/path/to/FILE.PNG"), "image/png")
+            self.assertEqual(model_context.detect_mime_type("/path/to/FILE.PDF"), "application/pdf")
 
-    def test_detect_mime_type_no_extension(self):
-        """Test _detect_mime_type defaults to text/plain for files without extension."""
+    def testdetect_mime_type_no_extension(self):
+        """Test detect_mime_type defaults to text/plain for files without extension."""
         with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=self.mock_provider):
             model_context = ModelContext("flash")
 
-            mime_type = model_context._detect_mime_type("/path/to/file_no_extension")
+            mime_type = model_context.detect_mime_type("/path/to/file_no_extension")
 
             self.assertEqual(mime_type, "text/plain")
 
-    def test_detect_mime_type_unknown_extension(self):
-        """Test _detect_mime_type handles unknown extensions (may use mimetypes library or fallback)."""
+    def testdetect_mime_type_unknown_extension(self):
+        """Test detect_mime_type handles unknown extensions (may use mimetypes library or fallback)."""
         with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=self.mock_provider):
             model_context = ModelContext("flash")
 
             # Use a truly unknown extension that mimetypes won't recognize
-            mime_type = model_context._detect_mime_type("/path/to/file.unknownext12345")
+            mime_type = model_context.detect_mime_type("/path/to/file.unknownext12345")
 
             self.assertEqual(mime_type, "text/plain")
 
-    def test_detect_mime_type_uses_mimetypes_library(self):
-        """Test _detect_mime_type uses mimetypes.guess_type first."""
+    def testdetect_mime_type_uses_mimetypes_library(self):
+        """Test detect_mime_type uses mimetypes.guess_type first."""
         with patch("utils.model_context.ModelProviderRegistry.get_provider_for_model", return_value=self.mock_provider):
             with patch("utils.model_context.mimetypes.guess_type", return_value=("image/svg+xml", None)):
                 model_context = ModelContext("flash")
 
-                mime_type = model_context._detect_mime_type("/path/to/file.svg")
+                mime_type = model_context.detect_mime_type("/path/to/file.svg")
 
                 # Should use mimetypes.guess_type result
                 self.assertEqual(mime_type, "image/svg+xml")

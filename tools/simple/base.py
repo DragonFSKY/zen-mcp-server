@@ -12,7 +12,6 @@ and inherit all the conversation, file processing, and model handling
 capabilities from BaseTool.
 """
 
-import mimetypes
 from abc import abstractmethod
 from typing import Any, Optional
 
@@ -456,13 +455,10 @@ class SimpleTool(BaseTool):
                 if hasattr(provider, "estimate_tokens_for_files"):
                     try:
                         # Prepare file list for token estimation
-                        files_for_estimation = []
-                        for image_path in images:
-                            # Determine MIME type
-                            mime_type, _ = mimetypes.guess_type(image_path)
-                            if not mime_type:
-                                mime_type = "image/jpeg"  # Default fallback
-                            files_for_estimation.append({"path": image_path, "mime_type": mime_type})
+                        files_for_estimation = [
+                            {"path": image_path, "mime_type": self._model_context.detect_mime_type(image_path)}
+                            for image_path in images
+                        ]
 
                         image_tokens = (
                             provider.estimate_tokens_for_files(self._current_model_name, files_for_estimation) or 0
