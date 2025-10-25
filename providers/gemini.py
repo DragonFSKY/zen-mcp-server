@@ -10,6 +10,14 @@ if TYPE_CHECKING:
 from google import genai
 from google.genai import types
 
+# LocalTokenizer is not exported in __all__, must import explicitly
+# Requires google-genai[local-tokenizer]>=1.34.0
+try:
+    from google.genai.local_tokenizer import LocalTokenizer
+    _HAS_LOCAL_TOKENIZER = True
+except ImportError:
+    _HAS_LOCAL_TOKENIZER = False
+
 from config import GEMINI_MEDIA_RESOLUTION
 from utils.env import get_env
 from utils.image_utils import validate_image
@@ -507,15 +515,17 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Returns:
             Token count
         """
-        try:
-            tokenizer = genai.LocalTokenizer(model_name=model_name)
-            result = tokenizer.count_tokens(content)
-            return result.total_tokens
+        if _HAS_LOCAL_TOKENIZER:
+            try:
+                tokenizer = LocalTokenizer(model_name=model_name)
+                result = tokenizer.count_tokens(content)
+                return result.total_tokens
 
-        except Exception as e:
-            logger.warning("LocalTokenizer failed: %s, using fallback", str(e))
-            # Fallback: 1 token ≈ 4 characters
-            return len(content) // 4
+            except Exception as e:
+                logger.warning("LocalTokenizer failed: %s, using fallback", str(e))
+        
+        # Fallback: 1 token ≈ 4 characters
+        return len(content) // 4
 
     def _calculate_image_tokens(self, file_path: str, model_name: str = "gemini-2.5-flash") -> int:
         """Calculate image token count per Google Developer API specification.

@@ -14,13 +14,27 @@ class TestGeminiTokenEstimation(unittest.TestCase):
         self.provider = GeminiModelProvider("test-key")
 
     # Test: Text token calculation
+    def test_calculate_text_tokens_success(self):
+        """Test text token calculation uses LocalTokenizer when available."""
+        # Test with real LocalTokenizer (requires google-genai[local-tokenizer]>=1.34.0)
+        try:
+            from google.genai.local_tokenizer import LocalTokenizer
+            # If LocalTokenizer is available, it should work
+            tokens = self.provider._calculate_text_tokens("gemini-2.5-flash", "Hello world")
+            # LocalTokenizer should return actual token count (not character-based fallback)
+            # "Hello world" is typically 2-3 tokens with SentencePiece
+            self.assertGreater(tokens, 0)
+            self.assertLess(tokens, 10)  # Sanity check
+        except ImportError:
+            # If LocalTokenizer not available, should use fallback
+            # "Hello world" = 11 characters / 4 = 2 tokens
+            tokens = self.provider._calculate_text_tokens("gemini-2.5-flash", "Hello world")
+            self.assertEqual(tokens, 2)
+
     def test_calculate_text_tokens_fallback(self):
         """Test text token calculation uses character-based fallback when LocalTokenizer fails."""
-        # Create a mock that raises exception when LocalTokenizer is accessed
-        mock_genai = MagicMock()
-        mock_genai.LocalTokenizer.side_effect = Exception("mocked failure")
-
-        with patch("providers.gemini.genai", mock_genai):
+        # Mock LocalTokenizer to raise exception
+        with patch("providers.gemini._HAS_LOCAL_TOKENIZER", False):
             # "Hello world" = 11 characters / 4 = 2 tokens
             tokens = self.provider._calculate_text_tokens("gemini-2.5-flash", "Hello world")
             self.assertEqual(tokens, 2)
