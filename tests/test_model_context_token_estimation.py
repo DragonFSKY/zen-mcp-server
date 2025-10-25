@@ -193,10 +193,10 @@ class TestModelContextTokenEstimation(unittest.TestCase):
         ):
             model_context = ModelContext("gpt-5")
 
-            # "Hello world" = 11 characters / 3 = 3 tokens (conservative estimate)
+            # "Hello world" = 11 characters / 4 = 2 tokens (conservative estimate)
             tokens = model_context.estimate_tokens("Hello world")
 
-            self.assertEqual(tokens, 3)
+            self.assertEqual(tokens, 2)
 
     def test_estimate_tokens_empty_text(self):
         """Test estimate_tokens returns 0 for empty text."""

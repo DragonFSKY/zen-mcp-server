@@ -431,23 +431,9 @@ class SimpleTool(BaseTool):
                 f"Using model: {self._model_context.model_name} via {provider.get_provider_type().value} provider"
             )
 
-            # Estimate tokens for logging (use provider-specific methods when available)
-            from utils.token_utils import estimate_tokens
-
-            # Estimate text tokens using provider-specific tokenizer
-            if hasattr(provider, "_calculate_text_tokens"):
-                try:
-                    estimated_tokens = provider._calculate_text_tokens(self._current_model_name, prompt)
-                    logger.debug(
-                        f"Prompt length: {len(prompt)} characters ({estimated_tokens:,} tokens via provider tokenizer)"
-                    )
-                except Exception as e:
-                    logger.debug(f"Provider tokenization failed: {e}, using fallback")
-                    estimated_tokens = estimate_tokens(prompt)
-                    logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens via fallback)")
-            else:
-                estimated_tokens = estimate_tokens(prompt)
-                logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
+            # Estimate tokens for logging using model context
+            estimated_tokens = self._model_context.estimate_tokens(prompt)
+            logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
 
             # Estimate image tokens if images are provided
             if images:

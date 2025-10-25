@@ -208,8 +208,8 @@ class ModelContext:
                     e,
                 )
 
-        # Fallback: Conservative character-based estimation
-        return len(text) // 3
+        # Fallback: Conservative character-based estimation (1 token ≈ 4 chars)
+        return len(text) // 4
 
     def estimate_file_tokens(self, file_path: str) -> int:
         """
