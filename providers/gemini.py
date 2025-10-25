@@ -33,6 +33,32 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
     REGISTRY_CLASS = GeminiModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
+    # Pre-Gemini 2.0 models that use fixed 258 tokens for all images (no tiling)
+    # These models should be explicitly listed to avoid version detection issues
+    PRE_GEMINI_2_0_MODELS = {
+        # Gemini 1.0 series
+        "gemini-1.0-pro",
+        "gemini-1.0-pro-latest",
+        "gemini-1.0-pro-vision",
+        "gemini-1.0-pro-vision-latest",
+        "gemini-pro",
+        "gemini-pro-vision",
+        # Gemini 1.5 Pro series
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-latest",
+        "gemini-1.5-pro-001",
+        "gemini-1.5-pro-002",
+        "gemini-1.5-pro-preview",
+        "gemini-1.5-pro-exp-0827",
+        # Gemini 1.5 Flash series
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash-001",
+        "gemini-1.5-flash-002",
+        "gemini-1.5-flash-preview",
+        "gemini-1.5-flash-exp-0827",
+    }
+
     # Thinking mode configurations - percentages of model's max_thinking_tokens
     # These percentages work across all models that support thinking
     THINKING_BUDGETS = {
@@ -526,7 +552,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
             # Gemini 1.5 and earlier: Fixed 258 tokens (no tiling)
             # "Prior to Gemini 2.0, images used a fixed 258 tokens"
-            if "1.5" in model_name or "1.0" in model_name:
+            if model_name in self.PRE_GEMINI_2_0_MODELS:
                 return 258
 
             # Gemini 2.0+: Fixed 768×768 tiles
