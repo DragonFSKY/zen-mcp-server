@@ -17,10 +17,22 @@ from tools.consensus import ConsensusTool
 CASSETTE_DIR = Path(__file__).parent / "openai_cassettes"
 CASSETTE_DIR.mkdir(exist_ok=True)
 
-# Mapping of OpenAI model names to their cassette files
+def get_cassette_for_model(base_name: str, model_name: str) -> Path:
+    """Dynamically select cassette based on model's API routing configuration."""
+    from providers.openai import OpenAIModelProvider
+
+    provider = OpenAIModelProvider(api_key="dummy-key-for-check")
+    capabilities = provider.get_capabilities(model_name)
+
+    if capabilities.use_openai_response_api:
+        return CASSETTE_DIR / f"{base_name}_responses.json"
+    else:
+        return CASSETTE_DIR / f"{base_name}.json"
+
+
 CONSENSUS_CASSETTES = {
-    "gpt-5": CASSETTE_DIR / "consensus_step1_gpt5_for.json",
-    "gpt-5.2": CASSETTE_DIR / "consensus_step1_gpt52_for.json",
+    "gpt-5": get_cassette_for_model("consensus_step1_gpt5_for", "gpt-5"),
+    "gpt-5.2": get_cassette_for_model("consensus_step1_gpt52_for", "gpt-5.2"),
 }
 
 GEMINI_REPLAY_DIR = Path(__file__).parent / "gemini_cassettes"

@@ -609,28 +609,6 @@ class OpenAICompatibleProvider(ModelProvider):
                     continue  # Skip unsupported parameters for reasoning models
                 completion_params[key] = value
 
-        # Check if this model needs the Responses API endpoint
-        # Prefer capability metadata; fall back to static map when capabilities unavailable
-        use_responses_api = False
-        if capabilities is not None:
-            use_responses_api = getattr(capabilities, "use_openai_response_api", False)
-        else:
-            static_capabilities = self.get_all_model_capabilities().get(resolved_model)
-            if static_capabilities is not None:
-                use_responses_api = getattr(static_capabilities, "use_openai_response_api", False)
-
-        if use_responses_api:
-            # These models require the /v1/responses endpoint for stateful context
-            # If it fails, we should not fall back to chat/completions
-            return self._generate_with_responses_endpoint(
-                model_name=resolved_model,
-                messages=messages,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-                capabilities=capabilities,
-                **kwargs,
-            )
-
         # Retry logic with progressive delays
         max_retries = 4  # Total of 4 attempts
         retry_delays = [1, 3, 5, 8]  # Progressive delays: 1s, 3s, 5s, 8s
