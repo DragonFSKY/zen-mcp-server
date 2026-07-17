@@ -454,7 +454,7 @@ class TestOpenRouterImageSupport:
             "openai/gpt-4-turbo",
             "openai/chatgpt-4o-latest",
             "openai/gpt-5",
-            "openai/gpt-5-pro",
+            "openai/gpt-5.2-pro",
             "openai/gpt-5-codex",
         ]
 
