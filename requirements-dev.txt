@@ -1,6 +1,7 @@
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-mock>=3.11.0
+# Black 26 reformats unrelated files; keep this branch on the established style.
 black>=23.0.0,<26.0.0
 ruff>=0.1.0
 isort>=5.12.0
