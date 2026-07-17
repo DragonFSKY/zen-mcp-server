@@ -1,5 +1,6 @@
 mcp>=1.0.0
-google-genai[local-tokenizer]>=1.46.0  # local-tokenizer extra for offline text token counting (tested with v1.46.0, latest stable)
+# Keep the verified 1.x tokenizer API; 2.x pulls PyTorch into every runtime image.
+google-genai[local-tokenizer]>=1.46.0,<2.0.0
 openai>=1.55.2  # Minimum version for httpx 0.28.0 compatibility
 pydantic>=2.0.0
 python-dotenv>=1.0.0
