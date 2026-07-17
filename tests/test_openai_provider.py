@@ -3,7 +3,9 @@
 import os
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+from openai import NotFoundError
 
 from providers.openai import OpenAIModelProvider
 from providers.shared import ProviderType
@@ -410,7 +412,13 @@ class TestOpenAIProvider:
         # Setup Responses API to fail with model error
         mock_responses_client = MagicMock()
         mock_responses_openai.return_value = mock_responses_client
-        mock_responses_client.responses.create.side_effect = Exception("Model 'test-model' not found")
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(404, request=request)
+        mock_responses_client.responses.create.side_effect = NotFoundError(
+            "Model 'test-model' not found",
+            response=response,
+            body={"error": {"code": "model_not_found"}},
+        )
 
         # Setup Chat API to succeed
         mock_chat_client = MagicMock()
@@ -449,6 +457,26 @@ class TestOpenAIProvider:
         mock_chat_client.chat.completions.create.assert_called_once()
         assert result.content == "Chat API response"
         assert result.model_name == "test-model"
+
+    @patch("providers.openai_responses.OpenAI")
+    @patch("providers.openai_compatible.OpenAI")
+    def test_responses_api_does_not_fallback_on_unstructured_error_text(self, mock_chat_openai, mock_responses_openai):
+        """Do not infer a 404 merely because an unrelated error mentions a model."""
+        mock_responses_client = MagicMock()
+        mock_responses_openai.return_value = mock_responses_client
+        mock_responses_client.responses.create.side_effect = Exception("Model metadata cache not found")
+
+        mock_chat_client = MagicMock()
+        mock_chat_openai.return_value = mock_chat_client
+
+        provider = OpenAIModelProvider("test-key")
+        mock_capabilities = MagicMock(use_openai_response_api=True)
+        provider.get_capabilities = MagicMock(return_value=mock_capabilities)
+
+        with pytest.raises(RuntimeError, match="Responses API error"):
+            provider.generate_content(prompt="Test prompt", model_name="test-model", temperature=1.0)
+
+        mock_chat_client.chat.completions.create.assert_not_called()
 
     def test_file_attachment_requires_responses_api(self):
         """Test that file attachments require Responses API support.

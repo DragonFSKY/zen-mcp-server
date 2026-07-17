@@ -8,6 +8,8 @@ This provider serves as a unified entry point for OpenAI's APIs:
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional
 
+from openai import NotFoundError
+
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
@@ -24,6 +26,18 @@ logger = logging.getLogger(__name__)
 
 # Example models that support Responses API (for validation messages)
 _RESPONSES_API_EXAMPLES = "gpt-5, gpt-5-pro, gpt-5-codex, o3, o3-pro, gpt-4.1"
+
+
+def _contains_not_found_error(exc: BaseException) -> bool:
+    """Return whether an exception chain contains an OpenAI 404 response."""
+    current: Optional[BaseException] = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        if isinstance(current, NotFoundError):
+            return True
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return False
 
 
 class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
@@ -192,20 +206,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
                     **kwargs,
                 )
             except Exception as e:
-                # Check if this is a model-not-supported error
-                error_str = str(e).lower()
-                is_model_error = any(
-                    keyword in error_str
-                    for keyword in [
-                        "model",
-                        "not supported",
-                        "invalid model",
-                        "does not exist",
-                        "not found",
-                    ]
-                )
-
-                if is_model_error and not has_files:
+                if _contains_not_found_error(e) and not has_files:
                     # Auto-fallback to Chat API if model doesn't support Responses
                     logger.warning(
                         f"Responses API failed for {model_name}: {e}. "

@@ -23,6 +23,7 @@ Defaults based on OpenAI Pricing calculator and Azure OpenAI technical documenta
 """
 
 import logging
+import math
 from pathlib import Path
 
 import imagesize
@@ -183,8 +184,6 @@ def _resize_for_vision(width: int, height: int) -> tuple[int, int]:
     - https://platform.openai.com/docs/guides/vision#vision-token-calculation
     - https://learn.microsoft.com/azure/ai-services/openai/concepts/gpt-with-vision
     """
-    import math
-
     if width <= 0 or height <= 0:
         return (0, 0)
 
@@ -207,8 +206,6 @@ def _resize_for_vision(width: int, height: int) -> tuple[int, int]:
 
 def _count_tiles(width: int, height: int) -> int:
     """Return the number of 512x512 tiles (ceil partial blocks)."""
-    import math
-
     return math.ceil(width / 512.0) * math.ceil(height / 512.0)
 
 
@@ -323,8 +320,6 @@ def _estimate_patch_tokens_by_dims(width: int, height: int, detail: str, model_n
     if mode == "auto" and min(width, height) <= 512:
         return base
     patch_size, patch_cap, multiplier = _pick_patch_const(model_name)
-    import math
-
     rw, rh = _resize_for_vision(width, height)
     patches = math.ceil(rw / float(patch_size)) * math.ceil(rh / float(patch_size))
     patches = min(patches, patch_cap)

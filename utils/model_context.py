@@ -247,7 +247,9 @@ class ModelContext:
             except Exception as e:
                 # Check if this is an OpenAI UnsupportedContentTypeError
                 # These should propagate up to fail early rather than at API call time
-                if e.__class__.__name__ == "UnsupportedContentTypeError":
+                from utils.openai_token_estimator import UnsupportedContentTypeError
+
+                if isinstance(e, UnsupportedContentTypeError):
                     raise  # Re-raise to fail early for unsupported content
 
                 logger.warning(
