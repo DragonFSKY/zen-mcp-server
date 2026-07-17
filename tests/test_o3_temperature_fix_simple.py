@@ -7,7 +7,21 @@ for O3 models while maintaining them for regular models.
 
 from unittest.mock import Mock, patch
 
+import httpx
+from openai import NotFoundError
+
 from providers.openai import OpenAIModelProvider
+
+
+def _model_not_found_error(model_name: str) -> NotFoundError:
+    """Build the structured SDK error that triggers the Responses fallback."""
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    response = httpx.Response(404, request=request)
+    return NotFoundError(
+        f"Model '{model_name}' not found",
+        response=response,
+        body={"error": {"code": "model_not_found"}},
+    )
 
 
 class TestO3TemperatureParameterFixSimple:
@@ -27,7 +41,7 @@ class TestO3TemperatureParameterFixSimple:
 
         # Mock Responses API client to raise error (force fallback to Chat API)
         mock_responses_client = Mock()
-        mock_responses_client.responses.create.side_effect = RuntimeError("Model not supported in Responses API")
+        mock_responses_client.responses.create.side_effect = _model_not_found_error("o3-mini")
         mock_responses_class.return_value = mock_responses_client
 
         # Setup mock Chat API client
@@ -132,7 +146,7 @@ class TestO3TemperatureParameterFixSimple:
 
         # Mock Responses API client to raise error (force fallback to Chat API)
         mock_responses_client = Mock()
-        mock_responses_client.responses.create.side_effect = RuntimeError("Model not supported in Responses API")
+        mock_responses_client.responses.create.side_effect = _model_not_found_error("o3")
         mock_responses_class.return_value = mock_responses_client
 
         # Setup mock Chat API client
