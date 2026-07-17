@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 from config import MCP_PROMPT_SIZE_LIMIT
 from providers import ModelProvider, ModelProviderRegistry
+from providers.shared import ProviderType
 from utils import estimate_tokens
 from utils.conversation_memory import (
     ConversationTurn,
@@ -1460,17 +1461,21 @@ When recommending searches, be specific about what information you need and why 
         if configured_limit_mb <= 0:
             return configured_limit_mb
 
-        effective_limit_mb = configured_limit_mb
-        try:
-            from providers.shared import ProviderType
+        if capabilities.provider == ProviderType.CUSTOM:
+            return min(configured_limit_mb, 40.0)
 
-            if getattr(capabilities, "provider", None) == ProviderType.CUSTOM:
-                effective_limit_mb = min(configured_limit_mb, 40.0)
-        except Exception:
-            # Fall back to configured limit on any exception
-            logger.debug("Failed to apply provider-specific limit; using configured limit", exc_info=True)
+        return configured_limit_mb
 
-        return effective_limit_mb
+    def _get_total_image_size_limit(self, capabilities: Any, max_image_size_mb: float) -> float:
+        """Return the total image size limit while preserving legacy provider config semantics."""
+        max_total_size_mb = capabilities.max_total_image_size_mb
+        if max_total_size_mb > 0:
+            return max_total_size_mb
+
+        if capabilities.provider != ProviderType.OPENROUTER and max_image_size_mb > 0:
+            return max_image_size_mb
+
+        return 0.0
 
     def _calculate_image_size(self, image_path: str) -> tuple[Optional[float], Optional[str]]:
         """
@@ -1642,13 +1647,13 @@ When recommending searches, be specific about what information you need and why 
                         },
                     }
 
-        # Check total request size limit (only if model has explicit total limit)
-        # If max_total_image_size_mb is 0, skip total size validation (no official limit documented)
+        # Check total request size limit. Older provider configs used max_image_size_mb
+        # as a total request cap, while OpenRouter uses it as a per-image cap.
         # NOTE: We validate against original image sizes, not base64-encoded sizes.
         # Provider-specific limits (e.g. Google 15MB, Anthropic 24MB) are already adjusted
         # to account for base64 encoding overhead (~33% increase) and text content.
         # This keeps validation simple and performant while providing adequate safety margin.
-        max_total_size_mb = capabilities.max_total_image_size_mb
+        max_total_size_mb = self._get_total_image_size_limit(capabilities, max_size_mb)
         if max_total_size_mb > 0:
             effective_total_limit_mb = self._get_effective_limit(max_total_size_mb, capabilities)
             # Check if total size exceeds the request limit

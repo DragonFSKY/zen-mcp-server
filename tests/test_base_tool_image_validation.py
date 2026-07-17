@@ -92,3 +92,32 @@ def test_validate_image_limits_respects_custom_total_cap(tmp_path):
     assert result is not None
     assert result["status"] == "error"
     assert "Total image size limit exceeded" in result["content"]
+
+
+def test_validate_image_limits_uses_legacy_total_cap_when_total_limit_missing(tmp_path):
+    tool = ChatTool()
+    caps = FakeCapabilities(provider=ProviderType.GOOGLE, max_image_size_mb=0.002, max_total_image_size_mb=0.0)
+    ctx = FakeModelContext(caps)
+
+    img1 = tmp_path / "img1.bin"
+    img2 = tmp_path / "img2.bin"
+    for path in (img1, img2):
+        path.write_bytes(b"\x00" * 1536)
+
+    result = tool._validate_image_limits([str(img1), str(img2)], model_context=ctx)
+    assert result is not None
+    assert result["status"] == "error"
+    assert "Total image size limit exceeded" in result["content"]
+
+
+def test_validate_image_limits_does_not_apply_openrouter_total_cap_without_total_limit(tmp_path):
+    tool = ChatTool()
+    caps = FakeCapabilities(provider=ProviderType.OPENROUTER, max_image_size_mb=0.002, max_total_image_size_mb=0.0)
+    ctx = FakeModelContext(caps)
+
+    img1 = tmp_path / "img1.bin"
+    img2 = tmp_path / "img2.bin"
+    for path in (img1, img2):
+        path.write_bytes(b"\x00" * 1536)
+
+    assert tool._validate_image_limits([str(img1), str(img2)], model_context=ctx) is None
