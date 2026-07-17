@@ -17,6 +17,7 @@ from tools.consensus import ConsensusTool
 CASSETTE_DIR = Path(__file__).parent / "openai_cassettes"
 CASSETTE_DIR.mkdir(exist_ok=True)
 
+
 def get_cassette_for_model(base_name: str, model_name: str) -> Path:
     """Dynamically select cassette based on model's API routing configuration."""
     from providers.openai import OpenAIModelProvider

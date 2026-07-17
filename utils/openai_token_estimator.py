@@ -23,6 +23,7 @@ Defaults based on OpenAI Pricing calculator and Azure OpenAI technical documenta
 """
 
 import logging
+from pathlib import Path
 
 import imagesize
 import tiktoken
@@ -397,6 +398,9 @@ def estimate_image_tokens(file_path: str, model_name: str, detail: str) -> int:
     - auto: if min-side ≤512 treat as low, else high
     """
     try:
+        if not Path(file_path).is_file():
+            raise FileNotFoundError(file_path)
+
         width, height = imagesize.get(file_path)
         if not width or not height:
             return FALLBACK_IMAGE_TOKENS
