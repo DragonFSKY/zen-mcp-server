@@ -1,8 +1,12 @@
 """Custom API provider implementation."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from utils.env import get_env
+
+if TYPE_CHECKING:
+    from tools.models import ToolModelCategory
 
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.custom import CustomEndpointModelRegistry
@@ -115,6 +119,12 @@ class CustomProvider(OpenAICompatibleProvider):
         """Identify this provider for restriction and logging logic."""
 
         return ProviderType.CUSTOM
+
+    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> str | None:
+        """Prefer the model explicitly configured for the custom endpoint."""
+
+        custom_model = (get_env("CUSTOM_MODEL_NAME", "") or "").strip().casefold()
+        return next((model for model in allowed_models if model.casefold() == custom_model), None)
 
     # ------------------------------------------------------------------
     # Registry helpers

@@ -168,10 +168,13 @@ class TestAutoModeCustomProviderOnly:
     def test_auto_mode_fallback_with_custom_only_should_work(self):
         """Test that auto mode fallback should work when only custom provider is available."""
 
+        configured_model = "zzz-configured-custom-model"
+
         # Set up environment with only custom provider
         test_env = {
             "CUSTOM_API_URL": "http://localhost:11434/v1",
             "CUSTOM_API_KEY": "",
+            "CUSTOM_MODEL_NAME": f" {configured_model} ",
             "DEFAULT_MODEL": "auto",
         }
 
@@ -189,20 +192,16 @@ class TestAutoModeCustomProviderOnly:
             # Register custom provider
             from providers.custom import CustomProvider
 
-            ModelProviderRegistry.register_provider(ProviderType.CUSTOM, CustomProvider)
+            with patch.object(CustomProvider, "_registry", None):
+                ModelProviderRegistry.register_provider(ProviderType.CUSTOM, CustomProvider)
 
-            # This should work and return a fallback model from custom provider
-            # Currently fails because get_preferred_fallback_model doesn't consider custom models
-            from tools.models import ToolModelCategory
+                from providers.registries.custom import CustomEndpointModelRegistry
+                from tools.models import ToolModelCategory
 
-            try:
-                fallback_model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
-                print(f"Fallback model for FAST_RESPONSE: {fallback_model}")
-
-                # Should get a valid model name, not the hardcoded fallback
+                registry = CustomEndpointModelRegistry()
+                assert registry.resolve(configured_model) is not None
+                assert configured_model in registry.list_aliases()
                 assert (
-                    fallback_model != "gemini-2.5-flash"
-                ), "Should not fallback to hardcoded Gemini model when custom provider is available"
-
-            except Exception as e:
-                pytest.fail(f"Getting fallback model failed: {e}")
+                    ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
+                    == configured_model
+                )
